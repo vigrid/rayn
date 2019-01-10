@@ -34,4 +34,24 @@ mod rayn {
         origin: Vector3<f32>,
         direction: Vector3<f32>,
     }
+
+    impl Ray {
+        #[allow(dead_code)]
+        fn translate(&mut self, amount: f32) {
+            self.origin += self.direction * amount;
+        }
+   }
+
+    #[test]
+    fn translate_works() {
+        let mut ray = Ray {
+            origin: Vector3 { x: 1.0, y: 2.0, z: 3.0 },
+            direction: Vector3 { x: 1.0, y: 0.0, z: 0.0 },
+        };
+
+        ray.translate(2.0);
+
+        assert_eq!(ray.origin, Vector3 { x: 3.0, y: 2.0, z: 3.0 });
+        assert_eq!(ray.direction, Vector3 { x: 1.0, y: 0.0, z: 0.0 });
+    }
 }
