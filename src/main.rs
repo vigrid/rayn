@@ -23,3 +23,15 @@ fn main() {
         window.update_with_buffer(&buffer).unwrap();
     }
 }
+
+mod rayn {
+    extern crate cgmath;
+
+    use cgmath::{ Vector3 };
+
+    #[allow(dead_code)]
+    pub struct Ray {
+        origin: Vector3<f32>,
+        direction: Vector3<f32>,
+    }
+}
