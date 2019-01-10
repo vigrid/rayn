@@ -1,9 +1,11 @@
 extern crate minifb;
 extern crate cgmath;
+extern crate rayon;
 
 mod sdf;
 
 use minifb::{ Window, WindowOptions, Key };
+use rayon::prelude::*;
 
 const WIDTH: usize = 1280 / 4;
 const HEIGHT: usize = 720 / 4;
@@ -54,8 +56,9 @@ fn scene(position: cgmath::Vector3<f32>, time: f32) -> f32 {
 
     let s1 = sdf::sphere(position + Vector3 { x: (time / 131.0).sin(), y: 0.0, z: 0.0 }, 0.7);
     let s2 = sdf::sphere(position - Vector3 { x: (time / 67.0).cos(), y: 0.65 * (time / 93.0).sin(), z: 0.0 }, 0.4);
+    let s3 = sdf::sphere(position - Vector3 { x: (time / 27.0).cos(), y: 0.25 * (time / 17.0).cos(), z: 0.0 }, 0.2);
 
-    smin(s1, s2, 0.5)
+    smin(s3, smin(s1, s2, 0.5), 0.5)
 }
 
 fn trace(sdf: fn(cgmath::Vector3<f32>, f32) -> f32, ray: &mut rayn::Ray, min: f32, max: f32, time: f32) -> TraceResult {
@@ -116,10 +119,12 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
     let fh = HEIGHT as f32;
     let aspect_ratio = fw / fh;
 
-    let mut index: usize = 0;
-    for y in 0..HEIGHT {
-        let fy = (y as f32) / fh * 2.0 - 1.0;
-        for x in 0..WIDTH {
+    buffer.par_iter_mut().enumerate().for_each(
+        |(n, pixel)| {
+            let y = (n as usize) / WIDTH;
+            let x = (n as usize) - (y * WIDTH);
+
+            let fy = (y as f32) / fh * 2.0 - 1.0;
             let fx = ((x as f32) / fw * 2.0 - 1.0) * aspect_ratio;
 
             let mut ray = rayn::Ray {
@@ -133,10 +138,9 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
                 TraceResult::Exit => COLOR_BLACK,
             };
 
-            buffer[index] = color;
-            index += 1;
+            *pixel = color;
         }
-    }
+    )
 }
 
 fn main() {
