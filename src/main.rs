@@ -3,6 +3,10 @@ extern crate cgmath;
 extern crate rayon;
 
 mod sdf;
+mod raytracer;
+
+use crate::raytracer::raytracer::*;
+use crate::sdf::sdf::*;
 
 use minifb::{ Window, WindowOptions, Key };
 use rayon::prelude::*;
@@ -15,21 +19,13 @@ const COLOR_BLACK: u32 = 0x00000000;
 const COLOR_MAGENTA: u32 = 0x00ff00ff;
 const COLOR_WHITE: u32 = 0x00ffffff;
 
-const TRACE_ITER_MAX: usize = 32;
-const TRACE_MIN: f32 = 0.01;
-const TRACE_MAX: f32 = 10.0;
-const NORMAL_EPSILON: f32 = 0.00005;
+const TRACE_MIN: f32 = 0.001;
+const TRACE_MAX: f32 = 100.0;
 
 fn clear(buffer: &mut Vec<u32>, color: u32) {
     for pixel in buffer.iter_mut() {
         *pixel = color;
     }
-}
-
-enum TraceResult {
-    Hit(rayn::Ray),
-    Miss,
-    Exit,
 }
 
 fn min(a: f32, b: f32) -> f32 {
@@ -54,31 +50,22 @@ fn max(a: f32, b: f32) -> f32 {
 fn scene(position: cgmath::Vector3<f32>, time: f32) -> f32 {
     use cgmath::Vector3;
 
-    let s1 = sdf::sphere(position + Vector3 { x: (time / 131.0).sin(), y: 0.0, z: 0.0 }, 0.7);
-    let s2 = sdf::sphere(position - Vector3 { x: (time / 67.0).cos(), y: 0.65 * (time / 93.0).sin(), z: 0.0 }, 0.4);
-    let s3 = sdf::sphere(position - Vector3 { x: (time / 27.0).cos(), y: 0.25 * (time / 17.0).cos(), z: 0.0 }, 0.2);
+    let mut min_s = 1000.0;
+    let r = Vector3 { x: 2.0, y: 2.0, z: 2.0 };
 
-    smin(s3, smin(s1, s2, 0.5), 0.5)
-}
+    for i in 0..8 {
+        let o = i as f32 * 6.37;
+        let p = position + Vector3 {
+            x: ((time + o) * 2.31).sin() * 2.0,
+            y: ((time + o) * 0.41).cos() * 2.0,
+            z: ((time + o) * 0.21).sin() * 2.0,
+        };
 
-fn trace(sdf: fn(cgmath::Vector3<f32>, f32) -> f32, ray: &mut rayn::Ray, min: f32, max: f32, time: f32) -> TraceResult {
-    let mut iterations = TRACE_ITER_MAX;
-
-    while iterations > 0 {
-        let distance = sdf(ray.origin, time);
-        if distance < min {
-            let normal = sdf::estimate_normal(&sdf, ray.origin, NORMAL_EPSILON, time);
-            return TraceResult::Hit(rayn::Ray { origin: ray.origin, direction: normal });
-        }
-        if distance > max {
-            return TraceResult::Miss;
-        }
-        ray.translate(distance);
-
-        iterations -= 1;
+        let s = sphere(p, 0.5);
+        min_s = smin(min_s, s, 2.5);
     }
 
-    TraceResult::Exit
+    min_s
 }
 
 fn clamp(f: f32) -> f32 {
@@ -90,7 +77,7 @@ fn clamp(f: f32) -> f32 {
     f
 }
 
-fn calculate_light(ray: rayn::Ray) -> u32 {
+fn calculate_light(ray: Ray, it: f32) -> u32 {
     use cgmath::InnerSpace;
     let light_r = (cgmath::Vector3 { x: -0.25, y: -0.5, z: -1.0 }).normalize();
     let light_g = (cgmath::Vector3 { x: -0.55, y: -0.3, z: -1.0 }).normalize();
@@ -104,43 +91,41 @@ fn calculate_light(ray: rayn::Ray) -> u32 {
     let intensity_g = clamp(dot_product_g.powf(6.0) + 0.05);
     let intensity_b = clamp(dot_product_b.powf(3.0) + 0.05);
 
-    let r = ((intensity_r * 255.0) as u32) * 0x00010000;
-    let g = ((intensity_g * 255.0) as u32) * 0x00000100;
-    let b = ((intensity_b * 255.0) as u32) * 0x00000001;
+    let r = ((intensity_r * it * 255.0) as u32) * 0x00010000;
+    let g = ((intensity_g * it * 255.0) as u32) * 0x00000100;
+    let b = ((intensity_b * it * 255.0) as u32) * 0x00000001;
 
     r + g + b
 }
 
 fn render(buffer: &mut Vec<u32>, time: f32) {
     extern crate cgmath;
-    use cgmath::{ Vector3 };
+    use cgmath::{ Vector3, InnerSpace };
 
     let fw = WIDTH as f32;
     let fh = HEIGHT as f32;
     let aspect_ratio = fw / fh;
 
-    buffer.par_iter_mut().enumerate().for_each(
-        |(n, pixel)| {
-            let y = (n as usize) / WIDTH;
-            let x = (n as usize) - (y * WIDTH);
+    buffer.par_iter_mut().enumerate().for_each(|(n, pixel)| {
+        let y = (n as usize) / WIDTH;
+        let x = (n as usize) - (y * WIDTH);
 
-            let fy = (y as f32) / fh * 2.0 - 1.0;
-            let fx = ((x as f32) / fw * 2.0 - 1.0) * aspect_ratio;
+        let fy = (y as f32) / fh * 2.0 - 1.0;
+        let fx = ((x as f32) / fw * 2.0 - 1.0) * aspect_ratio;
 
-            let mut ray = rayn::Ray {
-                origin: Vector3 { x: fx, y: fy, z: -5.0 },
-                direction: Vector3 { x: 0.0, y: 0.0, z: 1.0 },
-            };
+        let mut ray = Ray {
+            origin: Vector3 { x: 0.0, y: 0.0, z: -5.0 },
+            direction: Vector3 { x: fx, y: fy, z: 1.0 }.normalize(),
+        };
 
-            let color = match trace(scene, &mut ray, TRACE_MIN, TRACE_MAX, time) {
-                TraceResult::Hit(ray) => calculate_light(ray),
-                TraceResult::Miss => COLOR_BLACK,
-                TraceResult::Exit => COLOR_BLACK,
-            };
+        let color = match trace(scene, &mut ray, TRACE_MIN, TRACE_MAX, time) {
+            TraceResult::Hit(ray, it) => calculate_light(ray, it),
+            TraceResult::Miss(_d) => COLOR_BLACK,
+            TraceResult::Fail => COLOR_MAGENTA,
+        };
 
-            *pixel = color;
-        }
-    )
+        *pixel = color;
+    });
 }
 
 fn main() {
@@ -154,63 +139,16 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let now = std::time::Instant::now();
 
-        // clear(&mut buffer, COLOR_MAGENTA);
+        clear(&mut buffer, COLOR_MAGENTA);
         render(&mut buffer, time);
 
         window.update_with_buffer(&buffer).unwrap();
 
-        println!("{}", now.elapsed().subsec_millis());
+        let elapsed = now.elapsed();
+        let elapsed_ms = elapsed.as_secs() * 1000 + elapsed.subsec_millis() as u64;
 
-        time += 1.0;
-    }
-}
+        println!("{}", elapsed_ms as u64);
 
-mod rayn {
-    extern crate cgmath;
-
-    use cgmath::{ Vector3, InnerSpace };
-
-    #[allow(dead_code)]
-    pub struct Ray {
-        pub origin: Vector3<f32>,
-        pub direction: Vector3<f32>,
-    }
-
-    impl Ray {
-        #[allow(dead_code)]
-        pub fn translate(&mut self, amount: f32) {
-            self.origin += self.direction * amount;
-        }
-
-        #[allow(dead_code)]
-        pub fn normalize(&mut self) {
-            self.direction = self.direction.normalize();
-        }
-    }
-
-    #[test]
-    fn translate_works() {
-        let mut ray = Ray {
-            origin: Vector3 { x: 1.0, y: 2.0, z: 3.0 },
-            direction: Vector3 { x: 1.0, y: 0.0, z: 0.0 },
-        };
-
-        ray.translate(2.0);
-
-        assert_eq!(ray.origin, Vector3 { x: 3.0, y: 2.0, z: 3.0 });
-        assert_eq!(ray.direction, Vector3 { x: 1.0, y: 0.0, z: 0.0 });
-    }
-
-    #[test]
-    fn normalize_works() {
-        let mut ray = Ray {
-            origin: Vector3 { x: 1.0, y: 2.0, z: 3.0 },
-            direction: Vector3 { x: 5.0, y: 0.0, z: 0.0 },
-        };
-
-        ray.normalize();
-
-        assert_eq!(ray.origin, Vector3 { x: 1.0, y: 2.0, z: 3.0 });
-        assert_eq!(ray.direction, Vector3 { x: 1.0, y: 0.0, z: 0.0 });
+        time += (elapsed_ms as f32) / 1000.0;
     }
 }
