@@ -10,6 +10,13 @@ pub struct Ray {
     pub direction: Vector3<f32>,
 }
 
+pub struct Camera {
+    pub origin: Vector3<f32>,
+    pub target: Vector3<f32>,
+    pub aspect_ratio: f32,
+    pub fov: f32,
+}
+
 impl Ray {
     pub fn translate(&mut self, amount: f32) {
         self.origin += self.direction * amount;
@@ -18,6 +25,10 @@ impl Ray {
     pub fn normalize(&mut self) {
         self.direction = self.direction.normalize();
     }
+}
+
+impl Camera {
+
 }
 
 #[test]

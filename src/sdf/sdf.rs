@@ -15,6 +15,10 @@ pub fn unit_box(p: Vector3<f32>) -> f32 {
     v.magnitude()
 }
 
+pub fn plane(p: Vector3<f32>, n: Vector3<f32>, d: f32) -> f32 {
+    cgmath::dot(p, n) + d
+}
+
 pub fn repeat(p: Vector3<f32>, r: Vector3<f32>) -> Vector3<f32> {
     Vector3 {
         x: fmod(p.x, r.x) - 0.5 * r.x,

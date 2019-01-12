@@ -40,19 +40,22 @@ fn scene(position: cgmath::Vector3<f32>, time: f32) -> f32 {
     let mut min_s = 1000.0;
     let r = Vector3 { x: 2.0, y: 2.0, z: 2.0 };
 
-    for i in 0..4 {
+    for i in 0..8 {
         let o = i as f32 * 6.37;
         let p = position + Vector3 {
             x: ((time + o) * 1.31).sin() * 2.0,
-            y: ((time + o) * 0.31).cos() * 2.0,
+            y: ((time + o) * 0.31).cos() * 4.0,
             z: ((time + o) * 0.17).sin() * 2.0,
         };
 
         let s = sphere(p, 0.5);
-        min_s = smin(min_s, s, 2.5);
+        min_s = smin(min_s, s, 4.0);
     }
 
-    min_s
+    let p1 = plane(position, Vector3 { x: 0.0, y: -1.0, z: 0.0 }, 3.0);
+    let p2 = plane(position, Vector3 { x: 0.0, y:  1.0, z: 0.0 }, 3.0);
+
+    smin(p1.min(p2), min_s, 2.0)
 }
 
 fn calculate_light(ray: Ray, it: f32) -> u32 {
@@ -65,13 +68,18 @@ fn calculate_light(ray: Ray, it: f32) -> u32 {
     let dot_product_g = cgmath::dot(ray.direction, light_g);
     let dot_product_b = cgmath::dot(ray.direction, light_b);
 
-    let intensity_r = num::clamp(dot_product_r.powf(8.0) + 0.05, 0.0, 1.0);
-    let intensity_g = num::clamp(dot_product_g.powf(6.0) + 0.05, 0.0, 1.0);
-    let intensity_b = num::clamp(dot_product_b.powf(3.0) + 0.05, 0.0, 1.0);
+    let point = cgmath::Vector3 { x: 5.0, y: 2.0, z: -8.0 };
 
-    let r = ((intensity_r * it * 255.0) as u32) * 0x00010000;
-    let g = ((intensity_g * it * 255.0) as u32) * 0x00000100;
-    let b = ((intensity_b * it * 255.0) as u32) * 0x00000001;
+    let dot_camera = cgmath::dot(ray.direction, (ray.origin - point).normalize());
+
+    let intensity_r = num::clamp(dot_product_r.powf(8.0) + 0.05, 0.0, 0.5);
+    let intensity_g = num::clamp(dot_product_g.powf(6.0) + 0.05, 0.0, 0.5);
+    let intensity_b = num::clamp(dot_product_b.powf(3.0) + 0.05, 0.0, 0.5);
+    let intensity_camera = num::clamp(dot_camera.powf(80.0), 0.0, 0.5);
+
+    let r = (((intensity_camera + intensity_r) * it * 255.0) as u32) * 0x00010000;
+    let g = (((intensity_camera + intensity_g) * it * 255.0) as u32) * 0x00000100;
+    let b = (((intensity_camera + intensity_b) * it * 255.0) as u32) * 0x00000001;
 
     r + g + b
 }
@@ -117,7 +125,6 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let now = std::time::Instant::now();
 
-        clear(&mut buffer, COLOR_MAGENTA);
         render(&mut buffer, time);
 
         window.update_with_buffer(&buffer).unwrap();
