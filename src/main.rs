@@ -12,16 +12,17 @@ use crate::sdf::sdf::*;
 use minifb::{ Window, WindowOptions, Key };
 use rayon::prelude::*;
 
-const WIDTH: usize = 1280 / 4;
-const HEIGHT: usize = 720 / 4;
+const NUM_SPHERES: usize = 4;
+const WIDTH: usize = 320;
+const HEIGHT: usize = 200;
 const SCALE: minifb::Scale = minifb::Scale::X4;
 
 const COLOR_BLACK: u32 = 0x00000000;
 const COLOR_MAGENTA: u32 = 0x00ff00ff;
 const COLOR_WHITE: u32 = 0x00ffffff;
 
-const TRACE_MIN: f32 = 0.001;
-const TRACE_MAX: f32 = 100.0;
+const TRACE_MIN: f32 = 0.01;
+const TRACE_MAX: f32 = 30.0;
 
 fn clear(buffer: &mut Vec<u32>, color: u32) {
     for pixel in buffer.iter_mut() {
@@ -34,32 +35,43 @@ fn smin(a: f32, b: f32, k: f32) -> f32 {
     a.min(b) - h * h * k * 0.25
 }
 
-fn scene(position: cgmath::Vector3<f32>, time: f32) -> f32 {
-    use cgmath::Vector3;
-
-    let mut min_s = 1000.0;
-    let r = Vector3 { x: 2.0, y: 2.0, z: 2.0 };
-
-    for i in 0..8 {
-        let o = i as f32 * 6.37;
-        let p = position + Vector3 {
-            x: ((time + o) * 1.31).sin() * 2.0,
-            y: ((time + o) * 0.31).cos() * 4.0,
-            z: ((time + o) * 0.17).sin() * 2.0,
-        };
-
-        let s = sphere(p, 0.5);
-        min_s = smin(min_s, s, 4.0);
+fn prepare_scene(scene_def: &mut Scene, time: f32) {
+    let mut i = 0;
+    for object in scene_def.objects.iter_mut() {
+        match object {
+            Object::Plane(pos, d) => {},
+            Object::Sphere(pos, r) => {
+                let o = i as f32 * 16.37;
+                let new_pos = cgmath::Vector3 {
+                    x: ((time + o) * 1.31).sin() * 2.0,
+                    y: ((time + o) * 0.31).cos() * 4.0,
+                    z: ((time + o) * 0.17).sin() * 2.0,
+                };
+                let new_r = 0.5;
+                *object = Object::Sphere(new_pos, new_r);
+                // println!("{}: {:?} {}", i, new_pos, new_r);
+                i += 1;
+            },
+        }
     }
-
-    let p1 = plane(position, Vector3 { x: 0.0, y: -1.0, z: 0.0 }, 3.0);
-    let p2 = plane(position, Vector3 { x: 0.0, y:  1.0, z: 0.0 }, 3.0);
-
-    smin(p1.min(p2), min_s, 2.0)
 }
 
-fn calculate_light(ray: Ray, it: f32) -> u32 {
+fn scene_sdf(scene_def: &Scene, position: cgmath::Vector3<f32>) -> f32 {
+    let mut min_s: f32 = 1000.0;
+
+    for object in scene_def.objects.iter() {
+        match object {
+            Object::Plane(pos, d) => min_s = smin(min_s, plane(position, *pos, *d), 3.5),
+            Object::Sphere(pos, r) => min_s = smin(min_s, sphere(position - *pos, *r), 3.5),
+        };
+    };
+
+    min_s
+}
+
+fn calculate_light(ray: Ray, t: f32) -> u32 {
     use cgmath::InnerSpace;
+
     let light_r = (cgmath::Vector3 { x: -0.25, y: -0.5, z: -1.0 }).normalize();
     let light_g = (cgmath::Vector3 { x: -0.55, y: -0.3, z: -1.0 }).normalize();
     let light_b = (cgmath::Vector3 { x:  0.25, y:  0.2, z:  0.2 }).normalize();
@@ -72,14 +84,17 @@ fn calculate_light(ray: Ray, it: f32) -> u32 {
 
     let dot_camera = cgmath::dot(ray.direction, (ray.origin - point).normalize());
 
-    let intensity_r = num::clamp(dot_product_r.powf(8.0) + 0.05, 0.0, 0.5);
-    let intensity_g = num::clamp(dot_product_g.powf(6.0) + 0.05, 0.0, 0.5);
-    let intensity_b = num::clamp(dot_product_b.powf(3.0) + 0.05, 0.0, 0.5);
-    let intensity_camera = num::clamp(dot_camera.powf(80.0), 0.0, 0.5);
+    let intensity_r = num::clamp(dot_product_r.powf(8.0) + 0.15, 0.0, 0.9);
+    let intensity_g = num::clamp(dot_product_g.powf(6.0) + 0.15, 0.0, 0.9);
+    let intensity_b = num::clamp(dot_product_b.powf(3.0) + 0.15, 0.0, 0.9);
+    let intensity_camera = num::clamp(dot_camera.powf(80.0), 0.0, 1.0);
 
-    let r = (((intensity_camera + intensity_r) * it * 255.0) as u32) * 0x00010000;
-    let g = (((intensity_camera + intensity_g) * it * 255.0) as u32) * 0x00000100;
-    let b = (((intensity_camera + intensity_b) * it * 255.0) as u32) * 0x00000001;
+    let c = ((ray.origin.x * 2.0).floor() + (ray.origin.y * 2.0).floor() + (ray.origin.z * 2.0).floor()) as i32;
+    let c = if c % 2 == 0 { 255.0 } else { 192.0 };
+
+    let r = ((num::clamp(intensity_camera + intensity_r, 0.0, 1.0) * t * c * t) as u32) * 0x00010000;
+    let g = ((num::clamp(intensity_camera + intensity_g, 0.0, 1.0) * t * c * t) as u32) * 0x00000100;
+    let b = ((num::clamp(intensity_camera + intensity_b, 0.0, 1.0) * t * c * t) as u32) * 0x00000001;
 
     r + g + b
 }
@@ -91,6 +106,29 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
     let fw = WIDTH as f32;
     let fh = HEIGHT as f32;
     let aspect_ratio = fw / fh;
+
+    let mut scene_def = Scene {
+        camera: Camera {
+            origin: Vector3 { x: 0.0, y: 0.0, z: -5.0 },
+            target: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+            aspect_ratio,
+            fov: 45.0
+        },
+        objects: vec![
+            Object::Plane(Vector3 { x: 0.0, y: 1.0, z: 0.0 }, 3.0),
+            Object::Plane(Vector3 { x: 0.0, y: -1.0, z: 0.0 }, 3.0),
+        ],
+    };
+
+    for i in 0..NUM_SPHERES {
+        scene_def.objects.push(Object::Sphere(Vector3 { x: 0.0, y: -1.0, z: 0.0 }, 2.0));
+    }
+
+    prepare_scene(&mut scene_def, time);
+
+    let scene_fn = |pos| {
+        scene_sdf(&scene_def, pos)
+    };
 
     buffer.par_iter_mut().enumerate().for_each(|(n, pixel)| {
         let y = (n as usize) / WIDTH;
@@ -104,8 +142,8 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
             direction: Vector3 { x: fx, y: fy, z: 1.0 }.normalize(),
         };
 
-        let color = match trace(scene, &mut ray, TRACE_MIN, TRACE_MAX, time) {
-            TraceResult::Hit(ray, it) => calculate_light(ray, it),
+        let color = match trace(scene_fn, &mut ray, TRACE_MIN, TRACE_MAX) {
+            TraceResult::Hit(ray, t) => calculate_light(ray, t),
             TraceResult::Miss(_d) => COLOR_BLACK,
             TraceResult::Fail => COLOR_MAGENTA,
         };
