@@ -90,11 +90,14 @@ fn calculate_light(ray: Ray, t: f32) -> u32 {
     let intensity_camera = num::clamp(dot_camera.powf(80.0), 0.0, 1.0);
 
     let c = ((ray.origin.x * 2.0).floor() + (ray.origin.y * 2.0).floor() + (ray.origin.z * 2.0).floor()) as i32;
-    let c = if c % 2 == 0 { 255.0 } else { 192.0 };
 
-    let r = ((num::clamp(intensity_camera + intensity_r, 0.0, 1.0) * t * c * t) as u32) * 0x00010000;
-    let g = ((num::clamp(intensity_camera + intensity_g, 0.0, 1.0) * t * c * t) as u32) * 0x00000100;
-    let b = ((num::clamp(intensity_camera + intensity_b, 0.0, 1.0) * t * c * t) as u32) * 0x00000001;
+    let m = 8;
+
+    let c = if c % 2 == 0 { 255.0 / (m as f32) } else { 192.0 / (m as f32) };
+
+    let r = ((num::clamp(intensity_camera + intensity_r, 0.0, 1.0) * t * c * t) as u32) * m * 0x00010000;
+    let g = ((num::clamp(intensity_camera + intensity_g, 0.0, 1.0) * t * c * t) as u32) * m * 0x00000100;
+    let b = ((num::clamp(intensity_camera + intensity_b, 0.0, 1.0) * t * c * t) as u32) * m * 0x00000001;
 
     r + g + b
 }
