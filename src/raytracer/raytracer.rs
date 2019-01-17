@@ -1,6 +1,6 @@
 extern crate cgmath;
 
-use cgmath::{ Vector3, InnerSpace };
+use cgmath::{InnerSpace, Vector3};
 
 const TRACE_ITER_MAX: usize = 1024;
 const NORMAL_EPSILON: f32 = 0.005;
@@ -49,29 +49,72 @@ impl Camera {
 #[test]
 fn translate_works() {
     let mut ray = Ray {
-        origin: Vector3 { x: 1.0, y: 2.0, z: 3.0 },
-        direction: Vector3 { x: 1.0, y: 0.0, z: 0.0 },
+        origin: Vector3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        },
+        direction: Vector3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        },
     };
 
     ray.translate(2.0);
 
-    assert_eq!(ray.origin, Vector3 { x: 3.0, y: 2.0, z: 3.0 });
-    assert_eq!(ray.direction, Vector3 { x: 1.0, y: 0.0, z: 0.0 });
+    assert_eq!(
+        ray.origin,
+        Vector3 {
+            x: 3.0,
+            y: 2.0,
+            z: 3.0
+        }
+    );
+    assert_eq!(
+        ray.direction,
+        Vector3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0
+        }
+    );
 }
 
 #[test]
 fn normalize_works() {
     let mut ray = Ray {
-        origin: Vector3 { x: 1.0, y: 2.0, z: 3.0 },
-        direction: Vector3 { x: 5.0, y: 0.0, z: 0.0 },
+        origin: Vector3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        },
+        direction: Vector3 {
+            x: 5.0,
+            y: 0.0,
+            z: 0.0,
+        },
     };
 
     ray.normalize();
 
-    assert_eq!(ray.origin, Vector3 { x: 1.0, y: 2.0, z: 3.0 });
-    assert_eq!(ray.direction, Vector3 { x: 1.0, y: 0.0, z: 0.0 });
+    assert_eq!(
+        ray.origin,
+        Vector3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0
+        }
+    );
+    assert_eq!(
+        ray.direction,
+        Vector3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0
+        }
+    );
 }
-
 
 pub enum TraceResult {
     Hit(Ray, f32),
@@ -79,8 +122,10 @@ pub enum TraceResult {
     Fail,
 }
 
-pub fn trace<S>(sdf: S, ray: &mut Ray, min: f32, max: f32) -> TraceResult where
-    S: Fn(Vector3<f32>) -> f32 {
+pub fn trace<S>(sdf: S, ray: &mut Ray, min: f32, max: f32) -> TraceResult
+where
+    S: Fn(Vector3<f32>) -> f32,
+{
     let mut iterations = TRACE_ITER_MAX;
 
     let mut total_distance = 0.0;
@@ -91,7 +136,13 @@ pub fn trace<S>(sdf: S, ray: &mut Ray, min: f32, max: f32) -> TraceResult where
 
         if distance < min {
             let normal = estimate_normal(&sdf, ray.origin, NORMAL_EPSILON);
-            return TraceResult::Hit(Ray { origin: ray.origin, direction: normal }, 1.0 - total_distance / max);
+            return TraceResult::Hit(
+                Ray {
+                    origin: ray.origin,
+                    direction: normal,
+                },
+                1.0 - total_distance / max,
+            );
         }
         if total_distance > max {
             return TraceResult::Miss(distance);
@@ -105,16 +156,40 @@ pub fn trace<S>(sdf: S, ray: &mut Ray, min: f32, max: f32) -> TraceResult where
 }
 
 #[allow(dead_code)]
-pub fn estimate_normal<S>(scene: S, position: Vector3<f32>, epsilon: f32) -> Vector3<f32> where
-    S: Fn(Vector3<f32>) -> f32 {
-    let x1 = scene(Vector3 { x: position.x + epsilon, ..position });
-    let x0 = scene(Vector3 { x: position.x - epsilon, ..position });
-    let y1 = scene(Vector3 { y: position.y + epsilon, ..position });
-    let y0 = scene(Vector3 { y: position.y - epsilon, ..position });
-    let z1 = scene(Vector3 { z: position.z + epsilon, ..position });
-    let z0 = scene(Vector3 { z: position.z - epsilon, ..position });
+pub fn estimate_normal<S>(scene: S, position: Vector3<f32>, epsilon: f32) -> Vector3<f32>
+where
+    S: Fn(Vector3<f32>) -> f32,
+{
+    let x1 = scene(Vector3 {
+        x: position.x + epsilon,
+        ..position
+    });
+    let x0 = scene(Vector3 {
+        x: position.x - epsilon,
+        ..position
+    });
+    let y1 = scene(Vector3 {
+        y: position.y + epsilon,
+        ..position
+    });
+    let y0 = scene(Vector3 {
+        y: position.y - epsilon,
+        ..position
+    });
+    let z1 = scene(Vector3 {
+        z: position.z + epsilon,
+        ..position
+    });
+    let z0 = scene(Vector3 {
+        z: position.z - epsilon,
+        ..position
+    });
 
-    let n = Vector3 { x: x1 - x0, y: y1 - y0, z: z1 - z0 };
+    let n = Vector3 {
+        x: x1 - x0,
+        y: y1 - y0,
+        z: z1 - z0,
+    };
 
     n.normalize()
 }
