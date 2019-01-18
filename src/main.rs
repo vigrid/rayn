@@ -19,16 +19,9 @@ const SCALE: minifb::Scale = minifb::Scale::X4;
 
 const COLOR_BLACK: u32 = 0x00000000;
 const COLOR_MAGENTA: u32 = 0x00ff00ff;
-const COLOR_WHITE: u32 = 0x00ffffff;
 
 const TRACE_MIN: f32 = 0.01;
 const TRACE_MAX: f32 = 30.0;
-
-fn clear(buffer: &mut Vec<u32>, color: u32) {
-    for pixel in buffer.iter_mut() {
-        *pixel = color;
-    }
-}
 
 fn smin(a: f32, b: f32, k: f32) -> f32 {
     let h = (k - (a - b).abs()).max(0.0) / k;
@@ -39,8 +32,8 @@ fn prepare_scene(scene_def: &mut Scene, time: f32) {
     let mut i = 0;
     for object in scene_def.objects.iter_mut() {
         match object {
-            Object::Plane(pos, d) => {}
-            Object::Sphere(pos, r) => {
+            Object::Plane(_pos, _d) => {}
+            Object::Sphere(_pos, _r) => {
                 let o = i as f32 * 16.37;
                 let new_pos = cgmath::Vector3 {
                     x: ((time + o) * 1.31).sin() * 2.0,
@@ -49,7 +42,6 @@ fn prepare_scene(scene_def: &mut Scene, time: f32) {
                 };
                 let new_r = 0.5;
                 *object = Object::Sphere(new_pos, new_r);
-                // println!("{}: {:?} {}", i, new_pos, new_r);
                 i += 1;
             }
         }
@@ -135,7 +127,7 @@ fn calculate_light(ray: Ray, t: f32) -> u32 {
 
 fn render(buffer: &mut Vec<u32>, time: f32) {
     extern crate cgmath;
-    use cgmath::{InnerSpace, Vector3};
+    use cgmath::{Vector3};
 
     let fw = WIDTH as f32;
     let fh = HEIGHT as f32;
@@ -176,7 +168,7 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
         ],
     };
 
-    for i in 0..NUM_SPHERES {
+    for _i in 0..NUM_SPHERES {
         scene_def.objects.push(Object::Sphere(
             Vector3 {
                 x: 0.0,
@@ -198,19 +190,7 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
         let fy = (y as f32) / fh * 2.0 - 1.0;
         let fx = ((x as f32) / fw * 2.0 - 1.0) * aspect_ratio;
 
-        let mut ray = Ray {
-            origin: Vector3 {
-                x: 0.0,
-                y: 0.0,
-                z: -5.0,
-            },
-            direction: Vector3 {
-                x: fx,
-                y: fy,
-                z: 1.0,
-            }
-            .normalize(),
-        };
+        let mut ray = scene_def.camera.get_ray(fx, fy);
 
         let color = match trace(scene_fn, &mut ray, TRACE_MIN, TRACE_MAX) {
             TraceResult::Hit(ray, t) => calculate_light(ray, t),
