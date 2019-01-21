@@ -31,10 +31,6 @@ impl Ray {
     pub fn translate(&mut self, amount: f32) {
         self.origin += self.direction * amount;
     }
-
-    pub fn normalize(&mut self) {
-        self.direction = self.direction.normalize();
-    }
 }
 
 impl Camera {
@@ -44,76 +40,6 @@ impl Camera {
             direction: Vector3 { x, y, z: 1.0 }.normalize(),
         }
     }
-}
-
-#[test]
-fn translate_works() {
-    let mut ray = Ray {
-        origin: Vector3 {
-            x: 1.0,
-            y: 2.0,
-            z: 3.0,
-        },
-        direction: Vector3 {
-            x: 1.0,
-            y: 0.0,
-            z: 0.0,
-        },
-    };
-
-    ray.translate(2.0);
-
-    assert_eq!(
-        ray.origin,
-        Vector3 {
-            x: 3.0,
-            y: 2.0,
-            z: 3.0
-        }
-    );
-    assert_eq!(
-        ray.direction,
-        Vector3 {
-            x: 1.0,
-            y: 0.0,
-            z: 0.0
-        }
-    );
-}
-
-#[test]
-fn normalize_works() {
-    let mut ray = Ray {
-        origin: Vector3 {
-            x: 1.0,
-            y: 2.0,
-            z: 3.0,
-        },
-        direction: Vector3 {
-            x: 5.0,
-            y: 0.0,
-            z: 0.0,
-        },
-    };
-
-    ray.normalize();
-
-    assert_eq!(
-        ray.origin,
-        Vector3 {
-            x: 1.0,
-            y: 2.0,
-            z: 3.0
-        }
-    );
-    assert_eq!(
-        ray.direction,
-        Vector3 {
-            x: 1.0,
-            y: 0.0,
-            z: 0.0
-        }
-    );
 }
 
 pub enum TraceResult {
