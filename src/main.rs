@@ -6,17 +6,19 @@ extern crate rayon;
 mod raytracer;
 
 use crate::raytracer::raytracer::*;
+use crate::raytracer::sdf::*;
 
 use minifb::{Key, Window, WindowOptions};
 use rayon::prelude::*;
 
-const NUM_SPHERES: usize = 8;
 const WIDTH: usize = 320;
 const HEIGHT: usize = 200;
 const SCALE: minifb::Scale = minifb::Scale::X4;
 
 const COLOR_BLACK: u32 = 0x00000000;
 const COLOR_MAGENTA: u32 = 0x00ff00ff;
+
+const NUM_SPHERES: u32 = 4;
 
 const TRACE_MIN: f32 = 0.01;
 const TRACE_MAX: f32 = 30.0;
@@ -26,34 +28,11 @@ fn smin(a: f32, b: f32, k: f32) -> f32 {
     a.min(b) - h * h * k * 0.25
 }
 
-fn prepare_scene(scene_def: &mut Scene, time: f32) {
-    let mut i = 0;
-    for object in scene_def.objects.iter_mut() {
-        match object {
-            Object::Plane(_pos, _d) => {}
-            Object::Sphere(_pos, _r) => {
-                let o = i as f32 * 16.37;
-                let new_pos = cgmath::Vector3 {
-                    x: ((time + o) * 1.31).sin() * 2.0,
-                    y: ((time + o) * 0.31).cos() * 4.0,
-                    z: ((time + o) * 0.17).sin() * 2.0,
-                };
-                let new_r = 0.5;
-                *object = Object::Sphere(new_pos, new_r);
-                i += 1;
-            }
-        }
-    }
-}
-
 fn scene_sdf(scene_def: &Scene, position: cgmath::Vector3<f32>) -> f32 {
     let mut min_s: f32 = 1000.0;
 
     for object in scene_def.objects.iter() {
-        match object {
-            Object::Plane(pos, d) => min_s = smin(min_s, plane(position, *pos, *d), 3.5),
-            Object::Sphere(pos, r) => min_s = smin(min_s, sphere(position - *pos, *r), 3.5),
-        };
+        min_s = smin(min_s, object.sdf(position), 3.5);
     }
 
     min_s
@@ -102,7 +81,7 @@ fn calculate_light(ray: Ray, t: f32) -> u32 {
         + (ray.origin.y * 2.0).floor()
         + (ray.origin.z * 2.0).floor()) as i32;
 
-    let m = 8;
+    let m = 1;
 
     let c = if c % 2 == 0 {
         255.0 / (m as f32)
@@ -146,38 +125,19 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
             aspect_ratio,
             fov: 45.0,
         },
-        objects: vec![
-            Object::Plane(
-                Vector3 {
-                    x: 0.0,
-                    y: 1.0,
-                    z: 0.0,
-                },
-                3.0,
-            ),
-            Object::Plane(
-                Vector3 {
-                    x: 0.0,
-                    y: -1.0,
-                    z: 0.0,
-                },
-                3.0,
-            ),
-        ],
+        objects: vec![],
     };
 
-    for _i in 0..NUM_SPHERES {
-        scene_def.objects.push(Object::Sphere(
-            Vector3 {
-                x: 0.0,
-                y: -1.0,
-                z: 0.0,
-            },
-            2.0,
-        ));
-    }
+    for i in 0..NUM_SPHERES {
+        let o = i as f32 * 16.37;
+        let x = ((time + o) * 1.31).sin() * 2.0;
+        let y = ((time + o) * 0.31).cos() * 4.0;
+        let z = ((time + o) * 0.17).sin() * 2.0;
+        scene_def.objects.push(Box::new(Sphere::new(x, y, z, 0.5)));
+    };
 
-    prepare_scene(&mut scene_def, time);
+    scene_def.objects.push(Box::new(Plane::new(0.0, -1.0, 0.0, 3.0)));
+    scene_def.objects.push(Box::new(Plane::new(0.0, 1.0, 0.0, 3.0)));
 
     let scene_fn = |pos| scene_sdf(&scene_def, pos);
 

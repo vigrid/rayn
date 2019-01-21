@@ -1,6 +1,7 @@
 extern crate cgmath;
 
 use cgmath::{InnerSpace, Vector3};
+use crate::raytracer::sdf::Sdf;
 
 const TRACE_ITER_MAX: usize = 1024;
 const NORMAL_EPSILON: f32 = 0.005;
@@ -19,12 +20,7 @@ pub struct Camera {
 
 pub struct Scene {
     pub camera: Camera,
-    pub objects: Vec<Object>,
-}
-
-pub enum Object {
-    Plane(Vector3<f32>, f32),
-    Sphere(Vector3<f32>, f32),
+    pub objects: Vec<Box<Sdf>>,
 }
 
 impl Ray {
