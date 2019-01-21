@@ -6,12 +6,11 @@ extern crate rayon;
 mod raytracer;
 
 use crate::raytracer::raytracer::*;
-use crate::raytracer::sdf::*;
 
 use minifb::{Key, Window, WindowOptions};
 use rayon::prelude::*;
 
-const NUM_SPHERES: usize = 4;
+const NUM_SPHERES: usize = 8;
 const WIDTH: usize = 320;
 const HEIGHT: usize = 200;
 const SCALE: minifb::Scale = minifb::Scale::X4;

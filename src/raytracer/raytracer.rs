@@ -48,6 +48,14 @@ pub enum TraceResult {
     Fail,
 }
 
+pub fn sphere(p: Vector3<f32>, r: f32) -> f32 {
+    p.magnitude() - r
+}
+
+pub fn plane(p: Vector3<f32>, n: Vector3<f32>, d: f32) -> f32 {
+    cgmath::dot(p, n) + d
+}
+
 pub fn trace<S>(sdf: S, ray: &mut Ray, min: f32, max: f32) -> TraceResult
 where
     S: Fn(Vector3<f32>) -> f32,
