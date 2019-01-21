@@ -4,10 +4,9 @@ extern crate num;
 extern crate rayon;
 
 mod raytracer;
-mod sdf;
 
 use crate::raytracer::raytracer::*;
-use crate::sdf::sdf::*;
+use crate::raytracer::sdf::*;
 
 use minifb::{Key, Window, WindowOptions};
 use rayon::prelude::*;
