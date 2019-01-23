@@ -18,7 +18,7 @@ const SCALE: minifb::Scale = minifb::Scale::X4;
 const COLOR_BLACK: u32 = 0x00000000;
 const COLOR_MAGENTA: u32 = 0x00ff00ff;
 
-const NUM_SPHERES: u32 = 4;
+const NUM_OBJECTS: u32 = 8;
 
 const TRACE_MIN: f32 = 0.01;
 const TRACE_MAX: f32 = 30.0;
@@ -29,10 +29,10 @@ fn smin(a: f32, b: f32, k: f32) -> f32 {
 }
 
 fn scene_sdf(scene_def: &Scene, position: cgmath::Vector3<f32>) -> f32 {
-    let mut min_s: f32 = 1000.0;
+    let mut min_s: f32 = std::f32::MAX;
 
     for object in scene_def.objects.iter() {
-        min_s = smin(min_s, object.sdf(position), 3.5);
+        min_s = smin(min_s, object.sdf(position), 1.0);
     }
 
     min_s
@@ -128,12 +128,16 @@ fn render(buffer: &mut Vec<u32>, time: f32) {
         objects: vec![],
     };
 
-    for i in 0..NUM_SPHERES {
+    for i in 0..NUM_OBJECTS {
         let o = i as f32 * 16.37;
         let x = ((time + o) * 1.31).sin() * 2.0;
         let y = ((time + o) * 0.31).cos() * 4.0;
         let z = ((time + o) * 0.17).sin() * 2.0;
-        scene_def.objects.push(Box::new(Sphere::new(x, y, z, 0.5)));
+        match i % 2 {
+            0 => scene_def.objects.push(Box::new(Sphere::new(x, y, z, 0.5))),
+            1 => scene_def.objects.push(Box::new(Cube::new(x, y, z, 0.5, 0.5, 0.5))),
+            _ => {},
+        }
     };
 
     scene_def.objects.push(Box::new(Plane::new(0.0, -1.0, 0.0, 3.0)));
